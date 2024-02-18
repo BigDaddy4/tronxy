@@ -1,0 +1,131 @@
+# These macros are required for Fluidd to correctly function. You can 
+# copy these entries into your printer.cfg.
+# 
+# Alternatively, import this file by adding this line into your 
+# printer.cfg;
+# 
+# [include client_macros.cfg]
+[gcode_macro BedMeshCAL] 
+gcode:
+  BED_MESH_CALIBRATE
+
+[gcode_macro BedMeshCLR] 
+gcode:
+  BED_MESH_CLEAR
+
+[gcode_macro START_PRINT]
+
+gcode: 
+	SET_PIN PIN=caselight VALUE=1.0 
+	;BED_MESH_PROFILE LOAD=default
+  G90 ; use absolute coordinates
+	M83 ; extruder relative mode
+	G28 ; home all axis
+	quad_gantry_level
+  BED_MESH_CALIBRATE
+	Smart_Park
+	G92 E0
+
+
+[gcode_macro END_PRINT] 
+gcode: 
+	SET_PIN PIN=caselight VALUE=0.0
+	# Turn off bed, extruder, and fan
+	M140 S0 
+    M104 S0 
+    M106 S0
+	# Move nozzle away from print while retracting
+	G1 X5 Y5
+    M140 S0 ; turn off heatbed
+    M104 S0 ; turn off temperature
+    M107 ; turn off fan
+    M84 X Y E ; disable motors 
+
+[gcode_macro query_enstops] 
+gcode: 
+	query_endstops 
+
+[gcode_macro stepperX] 
+gcode:
+	STEPPER_BUZZ STEPPER=stepper_x 
+
+[gcode_macro stepperY] 
+gcode: 
+	STEPPER_BUZZ STEPPER=stepper_y
+
+[gcode_macro stepperZ] 
+gcode: 
+	STEPPER_BUZZ STEPPER=stepper_z 
+
+[gcode_macro stepperZ1] 
+gcode:
+  STEPPER_BUZZ STEPPER=stepper_z1 
+
+[gcode_macro stepperZ2] 
+gcode: 
+	STEPPER_BUZZ STEPPER=stepper_z2
+
+[gcode_macro stepperZ3] 
+gcode: 
+	STEPPER_BUZZ STEPPER=stepper_z3 
+
+[gcode_macro QUAD_LEVEL] 
+gcode:
+	QUAD_GANTRY_LEVEL 
+
+[gcode_macro BL_DOWN] 
+gcode:
+	BLTOUCH_DEBUG 
+	COMMAND=pin_down
+
+[gcode_macro BL_UP] 
+gcode:
+	BLTOUCH_DEBUG COMMAND=pin_up 
+
+[gcode_macro Touch_Mode] 
+gcode:
+	BLTOUCH_DEBUG COMMAND=touch_mode 
+
+[gcode_macro Probe_Reset] 
+gcode: 
+	BLTOUCH_DEBUG COMMAND=reset
+
+[pause_resume] 
+
+[gcode_macro PAUSE] 
+rename_existing: BASE_PAUSE
+# change this if you need more or less extrusion
+variable_extrude: 1.0 
+gcode:
+  ##### read E from pause macro #####
+  {% set E = printer["gcode_macro PAUSE"].extrude|float %}
+  ##### set park positon for x and y #####
+  # default is your max posion from your printer.cfg {% set x_park = 
+  #printer.toolhead.axis_maximum.x|float - 5.0 %} {% set y_park = 
+  #printer.toolhead.axis_maximum.y|float - 5.0 %}
+  {% set x_park = printer.toolhead.axis_minimum.x|float - 5.0 %} 
+  {% set y_park = printer.toolhead.axis_minimum.y|float - 5.0 %}
+  ##### calculate save lift position #####
+  {% set max_z = printer.toolhead.axis_maximum.z|float %} 
+  {% set act_z = printer.toolhead.position.z|float %} 
+  {% if act_z < (max_z - 2.0) %}
+      {% set z_safe = 2.0 %} 
+  {% else %} 
+      {% set z_safe = max_z - act_z %} 
+  {% endif %}
+  ##### end of definitions #####
+  SAVE_GCODE_STATE NAME=PAUSE_state 
+  BASE_PAUSE 
+  G91 
+  G1 E-{E} F2100 
+  G1 Z{z_safe} F900 
+  G90 
+  G1 X{x_park} Y{y_park} F6000
+
+[gcode_macro CANCEL_PRINT] 
+rename_existing: BASE_CANCEL_PRINT 
+gcode: 
+  TURN_OFF_HEATERS 
+  CLEAR_PAUSE 
+  SDCARD_RESET_FILE 
+  BASE_CANCEL_PRINT
